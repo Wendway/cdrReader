@@ -1,6 +1,6 @@
 # CDR Reader
 
-A small local web app for viewing CorelDRAW `.cdr` files. It asks Inkscape to convert the selected file to PDF and displays that PDF in your browser. The file and converted PDF stay on your computer; the app does not upload them to a service.
+A small local web app for viewing CorelDRAW `.cdr` files. It asks Inkscape to convert the selected file to PDF, displays the PDF in your browser, and lets you download it. Files stay on your computer; the app does not upload them to a service.
 
 ## Requirements
 
@@ -15,4 +15,4 @@ On macOS, install Inkscape from [inkscape.org](https://inkscape.org/). If the co
 python3 app.py
 ```
 
-The app opens `http://127.0.0.1:8765` in your browser. Choose a `.cdr` file to view it. Conversion support depends on the CDR version and features supported by your Inkscape installation. Uploads are limited to 100 MB and conversion has a 120-second timeout.
+The app opens `http://127.0.0.1:8765`. Choose or drop a `.cdr` file to preview and download its PDF conversion. Conversion support depends on the CDR version and features supported by your Inkscape installation. Uploads are limited to 100 MB and conversion has a 120-second timeout.
