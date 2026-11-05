@@ -1,6 +1,8 @@
 """A small local CDR-to-PDF viewer powered by Inkscape."""
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from email.parser import BytesParser
+from email.policy import default
 from pathlib import Path
 import shutil
 import subprocess
@@ -57,26 +59,34 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(413, b"File is empty or exceeds the 100 MB limit.", "text/plain")
             return
         content_type = self.headers.get("Content-Type", "")
-        boundary = content_type.partition("boundary=")[2].encode()
-        if not boundary:
-            self.reply(400, b"Expected a multipart file upload.", "text/plain")
-            return
         payload = self.rfile.read(length)
-        marker = b"--" + boundary
         file_data = None
-        filename = "drawing.cdr"
-        for part in payload.split(marker):
-            head, sep, data = part.partition(b"\r\n\r\n")
-            if sep and b'name="file"' in head:
-                disposition = head.decode("latin1", "replace")
-                for item in disposition.split(";"):
-                    item = item.strip()
-                    if item.startswith("filename="):
-                        filename = Path(item.split("=", 1)[1].strip('"')).name
-                file_data = data.removesuffix(b"\r\n").removesuffix(b"--\r\n")
-                break
-        if file_data is None or len(file_data) > MAX_UPLOAD or Path(filename).suffix.lower() != ".cdr":
-            self.reply(400, b"Choose a CDR file under 100 MB.", "text/plain")
+        filename = ""
+        try:
+            headers = (
+                f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n"
+            ).encode("ascii", "replace")
+            message = BytesParser(policy=default).parsebytes(headers + payload)
+            if message.is_multipart():
+                for part in message.iter_parts():
+                    if part.get_param("name", header="content-disposition") == "file":
+                        filename = part.get_filename() or ""
+                        file_data = part.get_payload(decode=True)
+                        break
+        except (ValueError, TypeError):
+            file_data = None
+
+        if file_data is None:
+            self.reply(400, b"Upload did not contain a readable file.", "text/plain")
+            return
+        if len(file_data) > MAX_UPLOAD:
+            self.reply(413, b"File exceeds the 100 MB limit.", "text/plain")
+            return
+        # Browser filenames are normally basenames, but also strip Windows separators
+        # so a file can never control the temporary path on a different host OS.
+        filename = Path(filename.replace("\\", "/")).name
+        if Path(filename).suffix.lower() != ".cdr":
+            self.reply(400, b"This upload was not identified as a .cdr file. Choose a CDR file.", "text/plain")
             return
         inkscape = shutil.which("inkscape")
         if not inkscape:
